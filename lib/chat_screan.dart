@@ -1,6 +1,10 @@
-import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
+import 'package:chatapp/api_consts.dart';
 import 'package:flutter/material.dart';
 import 'package:dash_chat_2/dash_chat_2.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
 class ChatScrean extends StatefulWidget {
   const ChatScrean({super.key});
 
@@ -8,52 +12,89 @@ class ChatScrean extends StatefulWidget {
   State<ChatScrean> createState() => _ChatScreanState();
 }
 
-  var chatgptapikeys ="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";
+final ChatUser curentuser =
+    ChatUser(id: "1", firstName: "tahsin", lastName: "sakib");
+final ChatUser gptchagggtuser =
+    ChatUser(id: "2", firstName: "chat", lastName: "gpt");
 
-  final _openapi =OpenAI.instance.build(token:chatgptapikeys,baseOption:HttpSetup(
-    receiveTimeout: Duration(seconds:5)
-  ),
-  enableLog:true,
-  );
-
-
-  final ChatUser curentuser = ChatUser(id: "1",firstName: "tahsin",lastName: "sakib");
-  final ChatUser gptchatuser = ChatUser(id: "1",firstName: "chat",lastName: "gpt");
-
-   List<ChatMessage> MessageList = <ChatMessage>[];
+List<ChatMessage> messageList = <ChatMessage>[];
 
 class _ChatScreanState extends State<ChatScrean> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:DashChat(currentUser:curentuser, onSend:(ChatMessage m) {
-        message(m);
-      }, messages: MessageList),
+      body: Column(
+        children: [
+          Expanded(
+            child: DashChat(
+                currentUser: curentuser,
+                onSend: (ChatMessage m) {
+                  message(m);
+                },
+                messages: messageList),
+          ),
+          ElevatedButton(
+              onPressed: () async {
+                String botReply =
+                    await getReplyFromAI(msg: 'Capital of Bangladesh!');
+
+                print(botReply);
+              },
+              child: Text('Send'))
+        ],
+      ),
     );
   }
-  Future<void> message(ChatMessage m)async{
-    setState(() {
-      MessageList.insert(0,m);
-    });
-    List<Messages> Messagehistory = MessageList.map((m) {
-      if(m.user == curentuser){
-        return Messages(role: Role.user,content:m.text);
-      }else{
-        return  Messages(role: Role.assistant,content:m.text);
-      }
-    }).toList();
 
-    final request = ChatCompleteText(model:Gpt40314ChatModel(), messages:Messagehistory,maxToken:200);
-   final response = await  _openapi.onChatCompletion(request: request);
-   for(var elament in response!.choices){
-    if(elament.message!=null){
-     setState(() {
-       MessageList.insert(0,ChatMessage(user:gptchatuser, createdAt:DateTime.now(),text:elament.message!.content));
-     });
+  //Send Message fct
+  Future<String> getReplyFromAI({
+    required String msg,
+  }) async {
+    final url = Uri.parse('$baseUrl/v1/chat/completions');
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $apiKey',
+    };
+
+    var body = jsonEncode({
+      "model": "gpt-3.5-turbo",
+      "messages": [
+        {"role": "user", "content": msg}
+      ],
+      "temperature": 0.7
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: body,
+      );
+
+      // Decode the response body bytes using utf8.decode
+      String responseBody = utf8.decode(response.bodyBytes);
+
+      Map jsonResponse = jsonDecode(responseBody);
+      if (jsonResponse['error'] != null) {
+        throw HttpException(jsonResponse['error']['message']);
+      }
+
+      late String messageContent;
+      if (jsonResponse['choices'].length > 0) {
+        messageContent = jsonResponse['choices'][0]['message']['content'];
+        // print(messageContent);
+        // print("Response messege is: $messageContent");
+      }
+      return messageContent;
+    } catch (error) {
+      rethrow;
     }
-   }
   }
 
-
-  
+  Future<void> message(ChatMessage m) async {
+    setState(() {
+      messageList.insert(0, m);
+    });
+  }
 }
