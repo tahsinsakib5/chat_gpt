@@ -17,7 +17,7 @@ final ChatUser curentuser =
 final ChatUser gptchagggtuser =
     ChatUser(id: "2", firstName: "chat", lastName: "gpt");
 
-List<ChatMessage> messageList = <ChatMessage>[];
+List<ChatMessage> messageList = [];
 
 class _ChatScreanState extends State<ChatScrean> {
   @override
@@ -28,8 +28,18 @@ class _ChatScreanState extends State<ChatScrean> {
           Expanded(
             child: DashChat(
                 currentUser: curentuser,
-                onSend: (ChatMessage m) {
-                  message(m);
+                onSend: (ChatMessage message) async {
+                  // print(message.text);
+                  message.user = curentuser;
+                  message.createdAt = DateTime.now();
+
+                  addMessage(message);
+
+                  String reply = await getReplyFromAI(msg: message.text);
+                  addMessage(ChatMessage(
+                      user: gptchagggtuser,
+                      createdAt: DateTime.now(),
+                      text: reply));
                 },
                 messages: messageList),
           ),
@@ -92,7 +102,7 @@ class _ChatScreanState extends State<ChatScrean> {
     }
   }
 
-  Future<void> message(ChatMessage m) async {
+  addMessage(ChatMessage m) {
     setState(() {
       messageList.insert(0, m);
     });
